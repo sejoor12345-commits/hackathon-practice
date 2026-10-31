@@ -1,22 +1,22 @@
 {
-  "_note": "[가짜] 평가 정답. 판정 기준은 practice_01/results/judgment.md 의 기준 1~3을 글자 그대로 적용했다.",
+  "_note": "[가짜] 평가 정답. 판정 기준은 practice_01/results/judgment.md 의 기준 1~3을 글자 그대로 적용했다. claim/needs: 애매 메모의 평가 표현(claim)이 리포트에 나가려면 강사 답변의 근거(needs)도 함께 나가야 한다.",
   "keywords": {
     "기준1": ["점수", "정답률", "%"],
     "기준2": ["횟수", "행동", "몇 번"],
     "기준3": ["시간", "분량", "몇 분", "개수"]
   },
   "memos": [
-    {"no": 1, "verdict": "정상", "criteria": [], "must_include": ["91점", "85점", "4회", "심화반"], "must_not": []},
-    {"no": 2, "verdict": "애매", "criteria": ["기준2"], "must_include": ["77점", "4회", "1회"], "must_not": []},
-    {"no": 3, "verdict": "정상", "criteria": [], "must_include": ["14/20", "17/20"], "must_not": []},
-    {"no": 4, "verdict": "애매", "criteria": ["기준1"], "must_include": ["말하기 대회"], "must_not": ["발음"]},
-    {"no": 5, "verdict": "정상", "criteria": [], "must_include": ["5분", "7분"], "must_not": []},
-    {"no": 6, "verdict": "애매", "criteria": ["기준2"], "must_include": ["82점"], "must_not": ["성실", "열심히"]},
-    {"no": 7, "verdict": "정상", "criteria": [], "must_include": ["3회", "1회", "64점", "72점", "8점", "보충수업", "2회"], "must_not": []},
-    {"no": 8, "verdict": "애매", "criteria": ["기준3"], "must_include": ["79점", "25분"], "must_not": []},
-    {"no": 9, "verdict": "애매", "criteria": ["기준2"], "must_include": ["73점", "5번"], "must_not": []},
-    {"no": 10, "verdict": "정상", "criteria": [], "must_include": ["65점", "81점"], "must_not": []},
-    {"no": 11, "verdict": "애매", "criteria": ["기준1"], "must_include": ["58점", "74점"], "must_not": []},
-    {"no": 12, "verdict": "정상", "criteria": [], "must_include": ["3주차", "70점", "중급반", "3회"], "must_not": []}
+    {"no": 1, "verdict": "정상", "criteria": [], "must_include": [ "91점", "85점", "4회", "심화반" ], "must_not": []},
+    {"no": 2, "verdict": "애매", "criteria": [ "기준2" ], "must_include": [ "77점", "4회", "1회" ], "must_not": [], "claim": "산만", "needs": [ "4회" ]},
+    {"no": 3, "verdict": "정상", "criteria": [], "must_include": [ "14/20", "17/20" ], "must_not": []},
+    {"no": 4, "verdict": "애매", "criteria": [ "기준1" ], "must_include": [ "말하기 대회" ], "must_not": [ "발음" ]},
+    {"no": 5, "verdict": "정상", "criteria": [], "must_include": [ "5분", "7분" ], "must_not": []},
+    {"no": 6, "verdict": "애매", "criteria": [ "기준2" ], "must_include": [ "82점" ], "must_not": [ "성실", "열심히" ]},
+    {"no": 7, "verdict": "정상", "criteria": [], "must_include": [ "3회", "1회", "64점", "72점", "8점", "보충수업", "2회" ], "must_not": []},
+    {"no": 8, "verdict": "애매", "criteria": [ "기준3" ], "must_include": [ "79점", "25분" ], "must_not": [], "claim": "더딘", "needs": [ "25분" ]},
+    {"no": 9, "verdict": "애매", "criteria": [ "기준2" ], "must_include": [ "73점", "5번" ], "must_not": [], "claim": "딴짓", "needs": [ "5번" ]},
+    {"no": 10, "verdict": "정상", "criteria": [], "must_include": [ "65점", "81점" ], "must_not": []},
+    {"no": 11, "verdict": "애매", "criteria": [ "기준1" ], "must_include": [ "58점", "74점" ], "must_not": [], "claim": "실력이 많이 늘었", "needs": [ "58점", "74점" ]},
+    {"no": 12, "verdict": "정상", "criteria": [], "must_include": [ "3주차", "70점", "중급반", "3회" ], "must_not": []}
   ]
 }
