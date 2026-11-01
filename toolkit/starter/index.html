@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>해커톤 스타터</title>
+<style>
+  /* ===== 색은 여기 변수만 바꾸면 전체가 바뀝니다 ===== */
+  :root {
+    --bg: #f7f6f2; --surface: #ffffff; --text: #1c1b19; --muted: #6a675f; --line: #dcd8cd;
+    --accent: #3b5bdb; --accent-text: #ffffff; --bad: #b3261e; --bad-bg: #fbe5e3; --chip: #e7ebfb;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151515; --surface: #1f1f1e; --text: #ecebe6; --muted: #a6a39b; --line: #393834;
+      --accent: #91a7ff; --accent-text: #10152b; --bad: #f2877e; --bad-bg: #3d1f1c; --chip: #252b40;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151515; --surface: #1f1f1e; --text: #ecebe6; --muted: #a6a39b; --line: #393834;
+    --accent: #91a7ff; --accent-text: #10152b; --bad: #f2877e; --bad-bg: #3d1f1c; --chip: #252b40;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  label { font-weight: 600; font-size: .92rem; display: block; margin-bottom: 6px; }
+  textarea { width: 100%; min-height: 140px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; resize: vertical; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); padding: 10px 18px; font-weight: 700; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .ghost { background: transparent; color: var(--text); border-color: var(--line); font-weight: 500; padding: 6px 12px; font-size: .85rem; }
+  .check { font-weight: 500; display: flex; gap: 6px; align-items: center; margin: 0; }
+  #out { white-space: pre-wrap; min-height: 3em; }
+  #meta { font-size: .8rem; color: var(--muted); margin-top: 8px; }
+  .chip { display: inline-block; background: var(--chip); border-radius: 999px; padding: 0 8px; font-size: .78rem; }
+  #err { display: none; background: var(--bad-bg); color: var(--bad); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .top { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <!-- ===== 1. 제품 이름과 한 줄 설명을 바꾸세요 ===== -->
+      <h1>OO 도우미</h1>
+      <p class="lead">누가 / 무엇을 / 얼마나 줄여 주는지 한 문장으로 바꿔 쓰세요.</p>
+    </div>
+    <button class="ghost" id="theme" type="button">밝기</button>
+  </div>
+
+  <section class="card">
+    <label for="input">입력</label>
+    <textarea id="input" placeholder="여기에 입력하세요"></textarea>
+    <div class="row">
+      <button id="go" type="button">보내기</button>
+      <label class="check"><input type="checkbox" id="demo"> 데모 모드 (서버 안 부름, 비용 0원)</label>
+    </div>
+    <div id="err" role="alert"></div>
+  </section>
+
+  <section class="card" aria-live="polite">
+    <label>결과</label>
+    <div id="out">아직 결과가 없습니다.</div>
+    <div id="meta"></div>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  // ===== 2. 시스템 지시문: 제품이 할 일을 여기 적으세요 =====
+  var SYSTEM = '너는 사용자를 돕는 도우미다. 입력에 없는 사실이나 숫자를 지어내지 말고, 모르면 모른다고 말한다. 한국어 존댓말로 짧게 답한다.';
+  // ===== 3. 데모 모드 답 (영상 녹화·발표 중 서버가 안 될 때 대비) =====
+  function demoAnswer(text) { return '[데모 모드] 입력 ' + text.length + '자를 받았습니다. 실제 답은 데모 모드를 끄면 나옵니다.'; }
+
+  var $ = function (id) { return document.getElementById(id); };
+  function showError(m) { $('err').textContent = m; $('err').style.display = m ? 'block' : 'none'; }
+  try { if (localStorage.getItem('starter_demo') === '1') $('demo').checked = true; } catch (e) { /* 저장 안 돼도 동작 */ }
+  $('demo').addEventListener('change', function () { try { localStorage.setItem('starter_demo', this.checked ? '1' : '0'); } catch (e) {} });
+  $('theme').addEventListener('click', function () {
+    var r = document.documentElement;
+    var dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+  });
+
+  async function ask(text) {
+    if ($('demo').checked) return { text: demoAnswer(text), model: '데모' };
+    var res = await fetch('/api/llm', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ system: SYSTEM, prompt: text })
+    });
+    var data = {};
+    try { data = await res.json(); } catch (e) { /* 서버가 JSON이 아닌 답을 줌 */ }
+    if (!res.ok) throw new Error(data.error || ('서버 오류 ' + res.status));
+    return data;
+  }
+
+  $('go').addEventListener('click', async function () {
+    var text = $('input').value.trim();
+    if (!text) { showError('입력을 먼저 넣어 주세요.'); return; }
+    showError('');
+    var b = this; b.disabled = true; b.textContent = '기다리는 중…';
+    var t0 = performance.now();
+    try {
+      var r = await ask(text);
+      $('out').textContent = r.text;
+      $('meta').innerHTML = '<span class="chip"></span> ' + Math.round(performance.now() - t0) + 'ms';
+      $('meta').firstChild.textContent = r.model || '';
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      b.disabled = false; b.textContent = '보내기';
+    }
+  });
+})();
+</script>
+</body>
+</html>
