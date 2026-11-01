@@ -30,6 +30,8 @@
   .lead { color: var(--muted); margin: 0 0 20px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
   label { font-weight: 600; font-size: .92rem; display: block; margin-bottom: 6px; }
+  input[type=password] { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .hint { font-size: .8rem; color: var(--muted); margin: 4px 0 12px; }
   textarea { width: 100%; min-height: 140px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; resize: vertical; }
   .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
   button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); padding: 10px 18px; font-weight: 700; }
@@ -55,6 +57,9 @@
   </div>
 
   <section class="card">
+    <label for="code">접근 코드</label>
+    <input type="password" id="code" autocomplete="off" placeholder="Vercel 의 ACCESS_CODE 와 같은 값">
+    <p class="hint">이 탭에만 기억합니다(탭을 닫으면 사라짐). 데모 모드에서는 필요 없습니다.</p>
     <label for="input">입력</label>
     <textarea id="input" placeholder="여기에 입력하세요"></textarea>
     <div class="row">
@@ -73,14 +78,16 @@
 <script>
 (function () {
   'use strict';
-  // ===== 2. 시스템 지시문: 제품이 할 일을 여기 적으세요 =====
-  var SYSTEM = '너는 사용자를 돕는 도우미다. 입력에 없는 사실이나 숫자를 지어내지 말고, 모르면 모른다고 말한다. 한국어 존댓말로 짧게 답한다.';
+  // ===== 2. 모델에게 주는 지시문은 서버(api/llm.js 의 DEFAULT_SYSTEM 또는 Vercel 환경 변수 SYSTEM_PROMPT)에서 정합니다 =====
+  //        브라우저에서 보낸 지시문은 서버가 버립니다(남이 내 키로 아무 일이나 시키지 못하게).
   // ===== 3. 데모 모드 답 (영상 녹화·발표 중 서버가 안 될 때 대비) =====
   function demoAnswer(text) { return '[데모 모드] 입력 ' + text.length + '자를 받았습니다. 실제 답은 데모 모드를 끄면 나옵니다.'; }
 
   var $ = function (id) { return document.getElementById(id); };
   function showError(m) { $('err').textContent = m; $('err').style.display = m ? 'block' : 'none'; }
   try { if (localStorage.getItem('starter_demo') === '1') $('demo').checked = true; } catch (e) { /* 저장 안 돼도 동작 */ }
+  try { $('code').value = sessionStorage.getItem('starter_access_code') || ''; } catch (e) {}
+  $('code').addEventListener('input', function () { try { sessionStorage.setItem('starter_access_code', this.value); } catch (e) {} });
   $('demo').addEventListener('change', function () { try { localStorage.setItem('starter_demo', this.checked ? '1' : '0'); } catch (e) {} });
   $('theme').addEventListener('click', function () {
     var r = document.documentElement;
@@ -91,8 +98,8 @@
   async function ask(text) {
     if ($('demo').checked) return { text: demoAnswer(text), model: '데모' };
     var res = await fetch('/api/llm', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ system: SYSTEM, prompt: text })
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-access-code': $('code').value },
+      body: JSON.stringify({ prompt: text })
     });
     var data = {};
     try { data = await res.json(); } catch (e) { /* 서버가 JSON이 아닌 답을 줌 */ }

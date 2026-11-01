@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3분 피칭 연습</title>
+<meta name="description" content="구간별 타이머, 심사위원 질문 뽑기, 자기 채점으로 3분 피칭을 연습하는 페이지">
+<style>
+  :root {
+    --bg: #f5f4ef; --surface: #ffffff; --surface-2: #ecebe4; --text: #1b1a17; --muted: #66635b; --line: #d9d5c9;
+    --accent: #1f6f5c; --accent-text: #ffffff;
+    --ok: #1f6f5c; --ok-bg: #e2f1ec; --warn: #9a5b00; --warn-bg: #fdefd6; --bad: #b3261e; --bad-bg: #fbe3e0;
+    --seg-1: #2f6f8f; --seg-2: #3d8a6f; --seg-3: #b5832a; --seg-4: #8a4f9e; --seg-5: #b8573d; --seg-6: #55606e;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141413; --surface: #1e1e1c; --surface-2: #2a2926; --text: #edece7; --muted: #a8a59c; --line: #383732;
+      --accent: #6cc4a7; --accent-text: #0f201a;
+      --ok: #6cc4a7; --ok-bg: #18302a; --warn: #f2b45c; --warn-bg: #3a2b12; --bad: #f28b80; --bad-bg: #3e1d1a;
+      --seg-1: #6aaccc; --seg-2: #6cc4a7; --seg-3: #e0b25a; --seg-4: #c08ad3; --seg-5: #e5896d; --seg-6: #9aa6b4;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141413; --surface: #1e1e1c; --surface-2: #2a2926; --text: #edece7; --muted: #a8a59c; --line: #383732;
+    --accent: #6cc4a7; --accent-text: #0f201a;
+    --ok: #6cc4a7; --ok-bg: #18302a; --warn: #f2b45c; --warn-bg: #3a2b12; --bad: #f28b80; --bad-bg: #3e1d1a;
+    --seg-1: #6aaccc; --seg-2: #6cc4a7; --seg-3: #e0b25a; --seg-4: #c08ad3; --seg-5: #e5896d; --seg-6: #9aa6b4;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 72px; }
+  header { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 14px; }
+  h1 { font-size: 1.45rem; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 2px 0 0; font-size: .92rem; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); padding: 9px 14px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
+  button.small { padding: 4px 10px; font-size: .82rem; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* 타이머 */
+  .timer { border-radius: 14px; padding: 18px 16px; text-align: center; background: var(--ok-bg); transition: background .3s; }
+  .timer[data-state="warn"] { background: var(--warn-bg); }
+  .timer[data-state="over"] { background: var(--bad-bg); }
+  .timer[data-state="idle"] { background: var(--surface-2); }
+  .sec-name { font-size: 1.15rem; font-weight: 700; }
+  .sec-hint { font-size: .86rem; color: var(--muted); min-height: 1.3em; }
+  .clock { font-size: clamp(3.2rem, 18vw, 5.2rem); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; margin: 6px 0; letter-spacing: -0.02em; }
+  .timer[data-state="warn"] .clock { color: var(--warn); }
+  .timer[data-state="over"] .clock { color: var(--bad); }
+  .total { font-size: .92rem; font-variant-numeric: tabular-nums; }
+  .total b { font-weight: 700; }
+  .bar { position: relative; display: flex; height: 14px; border-radius: 999px; overflow: hidden; margin: 12px 0 4px; background: var(--surface-2); }
+  .bar span { display: block; height: 100%; opacity: .35; }
+  .bar span.done, .bar span.now { opacity: 1; }
+  .bar .needle { position: absolute; top: -3px; bottom: -3px; width: 3px; background: var(--text); border-radius: 2px; left: 0; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .kbd { font-size: .78rem; color: var(--muted); margin-top: 8px; text-align: center; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; font-size: .82rem; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+  tr.now td { font-weight: 700; }
+  .diff-over { color: var(--bad); font-weight: 700; }
+  .diff-under { color: var(--muted); }
+  input[type=number] { width: 4.6em; font: inherit; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); text-align: right; }
+  details summary { cursor: pointer; color: var(--muted); font-size: .88rem; margin-top: 10px; }
+
+  /* 질문 */
+  .qrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  select { font: inherit; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .question { font-size: 1.12rem; font-weight: 600; min-height: 3.2em; padding: 12px; border-radius: 10px; background: var(--surface-2); }
+  .qmeta { display: flex; justify-content: space-between; font-size: .84rem; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .qmeta b.warn { color: var(--warn); } .qmeta b.over { color: var(--bad); }
+  .tag { display: inline-block; font-size: .75rem; padding: 0 8px; border-radius: 999px; background: var(--ok-bg); color: var(--ok); margin-right: 6px; }
+
+  /* 채점 */
+  .rubric { list-style: none; padding: 0; margin: 0; }
+  .rubric li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .rubric .q { font-size: .92rem; margin-bottom: 6px; }
+  .scale { display: flex; gap: 6px; }
+  .scale label { flex: 1; text-align: center; border: 1px solid var(--line); border-radius: 8px; padding: 4px 0; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .scale input { position: absolute; opacity: 0; pointer-events: none; }
+  .scale input:checked + span { font-weight: 800; }
+  .scale label:has(input:checked) { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .scale label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  textarea { width: 100%; min-height: 70px; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); margin-top: 10px; }
+  .score-line { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; flex-wrap: wrap; }
+  .score-line b { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+  .note { font-size: .82rem; color: var(--muted); }
+  .toast { font-size: .86rem; color: var(--ok); min-height: 1.3em; }
+  .empty { color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>3분 피칭 연습</h1>
+      <p class="sub">문제 – 해결 – 데모 – 숫자 – 팀 – 요청. 구간이 바뀔 때 "다음 구간"을 누르세요.</p>
+    </div>
+    <button class="small" id="theme" type="button" aria-label="화면 밝기 바꾸기">밝기</button>
+  </header>
+
+  <section class="card" aria-label="타이머">
+    <div class="timer" id="timer" data-state="idle">
+      <div class="sec-name" id="sec-name" aria-live="polite">준비</div>
+      <div class="sec-hint" id="sec-hint">시작을 누르면 첫 구간이 시작됩니다.</div>
+      <div class="clock" id="clock">0:30</div>
+      <div class="total">전체 <b id="total-elapsed">0:00</b> / <span id="total-plan">3:00</span> · <span id="total-left">3:00 남음</span></div>
+    </div>
+    <div class="bar" id="bar" aria-hidden="true"></div>
+    <div class="controls">
+      <button class="primary" id="start" type="button">시작</button>
+      <button id="next" type="button" disabled>다음 구간</button>
+      <button id="reset" type="button">처음부터</button>
+    </div>
+    <div class="kbd">키보드: 스페이스 = 시작/멈춤, → = 다음 구간</div>
+  </section>
+
+  <section class="card" aria-label="구간">
+    <h2>구간 계획과 실제</h2>
+    <table>
+      <thead><tr><th>구간</th><th class="num">계획</th><th class="num">실제</th><th class="num">차이</th></tr></thead>
+      <tbody id="sections"></tbody>
+    </table>
+    <details>
+      <summary>구간 시간 바꾸기 (초)</summary>
+      <table><tbody id="edit"></tbody></table>
+      <button class="small" id="restore" type="button" style="margin-top:8px">기본값(30·30·60·30·15·15)</button>
+    </details>
+  </section>
+
+  <section class="card" aria-label="심사위원 질문">
+    <h2>심사위원 질문 뽑기</h2>
+    <div class="qrow">
+      <select id="qcat" aria-label="질문 종류">
+        <option value="all">전체</option>
+        <option value="공통">공통 (문제·고객)</option>
+        <option value="해커톤">해커톤 (기술·데모)</option>
+        <option value="창업">창업경진대회 (사업·팀)</option>
+      </select>
+      <button class="primary" id="draw" type="button">질문 뽑기</button>
+    </div>
+    <div class="question" id="question" aria-live="polite">질문을 뽑으면 30초 안에 답해 보세요. 근거가 실측인지, 목표인지, 가설인지 말하는 연습도 같이 하세요.</div>
+    <div class="qmeta"><span id="qinfo"></span><span>답변 <b id="qclock">0:30</b></span></div>
+  </section>
+
+  <section class="card" aria-label="자기 채점">
+    <h2>자기 채점 (항목당 1~5점)</h2>
+    <ul class="rubric" id="rubric"></ul>
+    <textarea id="memo" placeholder="다음에 바꿀 것 한 줄"></textarea>
+    <div class="score-line">
+      <span>합계 <b id="score">0</b> / <span id="score-max">30</span></span>
+      <button class="primary" id="save" type="button">이번 연습 저장</button>
+    </div>
+    <div class="toast" id="toast" aria-live="polite"></div>
+    <p class="note">이 브라우저에만 저장됩니다(서버로 보내지 않음). 사지방 PC에서는 다른 사람이 볼 수 있으니 메모에 개인정보를 쓰지 마세요.</p>
+  </section>
+
+  <section class="card" aria-label="연습 기록">
+    <h2>연습 기록</h2>
+    <div id="history"></div>
+    <button class="small" id="clear" type="button" style="margin-top:10px">기록 지우기</button>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var STORE = 'pitch_timer_v1';
+  var DEFAULT = [
+    { name: '문제', sec: 30, hint: '누가, 얼마나 자주, 얼마나 손해 – 숫자 1개 이상' },
+    { name: '해결', sec: 30, hint: '한 문장 정의 + 스스로 판단하는 지점' },
+    { name: '데모', sec: 60, hint: '핵심 흐름 1개만, 클릭마다 한 문장' },
+    { name: '숫자', sec: 30, hint: '실측 결과 + 한계 1개' },
+    { name: '팀', sec: 15, hint: '왜 우리가 풀 수 있나' },
+    { name: '요청', sec: 15, hint: '원하는 것 1개를 구체적으로' }
+  ];
+  var RUBRIC = [
+    '첫 30초 안에 문제를 숫자로 말했다',
+    '문제와 해결이 한 문장으로 이어졌다',
+    '데모가 실제 화면으로 핵심 흐름을 끝까지 보여 줬다',
+    '숫자를 실측 / 목표 / 가설로 구분해 말했다',
+    '3분 안에 끝냈고 구간 시간을 지켰다',
+    '질문에 30초 안에 근거를 들어 답했다'
+  ];
+  var QUESTIONS = [
+    ['공통', '이 문제를 실제로 겪는 사람을 몇 명 만나 보셨나요?'],
+    ['공통', '지금은 이 문제를 어떻게 해결하고 있나요? 그 방법보다 무엇이 나은가요?'],
+    ['공통', '발표한 숫자 중 직접 측정한 것과 추정한 것을 구분해 주세요.'],
+    ['공통', '이 서비스를 가장 먼저 쓸 사람 한 명을 구체적으로 설명해 주세요.'],
+    ['공통', '왜 지금 이 문제를 풀어야 하나요?'],
+    ['공통', '비슷한 서비스가 이미 있는데, 차이가 무엇인가요?'],
+    ['공통', '사용자가 한 번 쓰고 다시 오게 만드는 이유는 무엇인가요?'],
+    ['공통', '이 문제의 크기를 숫자로 말해 주세요. (몇 명, 몇 시간, 얼마)'],
+    ['공통', '가장 큰 위험 요소 하나와 대응 방법은 무엇인가요?'],
+    ['공통', '이 서비스가 실패한다면 가장 그럴듯한 이유는 무엇일까요?'],
+    ['공통', '고객이 이 서비스를 쓰지 않을 이유는 무엇일까요?'],
+    ['공통', '심사위원에게 지금 가장 필요한 도움은 무엇인가요?'],
+    ['해커톤', '데모에서 진짜로 동작한 부분과 미리 만들어 둔 부분은 어디인가요?'],
+    ['해커톤', 'AI가 틀린 답을 내면 어떻게 알아채고 막나요?'],
+    ['해커톤', 'AI를 빼면 무엇이 안 되나요? 꼭 AI가 필요한 이유는요?'],
+    ['해커톤', 'AI 도구를 개발에 어떻게 썼나요? 직접 판단한 부분은 어디인가요?'],
+    ['해커톤', '사용자가 100배로 늘면 무엇이 먼저 문제가 되나요?'],
+    ['해커톤', 'API 비용은 사용자 1명당 얼마로 예상하나요?'],
+    ['해커톤', '개인정보나 민감한 데이터는 어떻게 다루나요?'],
+    ['해커톤', '테스트는 어떻게 했나요? 결과를 숫자로 말해 주세요.'],
+    ['해커톤', '만드는 동안 가장 어려웠던 문제와 해결 방법은 무엇인가요?'],
+    ['해커톤', '대회 기간 안에 만든 부분과 원래 있던 부분을 구분해 주세요.'],
+    ['해커톤', '무료 모델이 멈추거나 느려지면 서비스는 어떻게 되나요?'],
+    ['해커톤', '평가에 쓴 데이터는 만들 때 본 데이터와 따로 떼어 두었나요?'],
+    ['해커톤', '24시간이 더 있다면 무엇을 하겠습니까?'],
+    ['해커톤', '데모에 쓴 데이터는 진짜인가요, 가짜인가요? 가짜라면 진짜와 얼마나 비슷한가요?'],
+    ['창업', '누가 돈을 내나요? 얼마를 내나요?'],
+    ['창업', '첫 고객 10명을 어떻게 확보하겠습니까?'],
+    ['창업', '시장 규모를 어떻게 계산했나요? 근거 자료는 무엇인가요?'],
+    ['창업', '경쟁사가 같은 기능을 내일 출시하면 어떻게 하나요?'],
+    ['창업', '상금이나 지원금을 받으면 어디에 먼저 쓰겠습니까?'],
+    ['창업', '6개월 뒤 무엇을 달성하면 성공이라고 보나요? 숫자로 말해 주세요.'],
+    ['창업', '팀원 각자의 역할은 무엇인가요? 빠진 역량은 무엇인가요?'],
+    ['창업', '왜 이 팀이 이 문제를 가장 잘 풀 수 있나요?'],
+    ['창업', '복무 중에 이 사업을 어떻게 계속 진행할 계획인가요?'],
+    ['창업', '전역 후에도 이 아이템을 계속할 건가요? 계획은요?'],
+    ['창업', '사업화할 때 법·제도상 걸리는 부분은 없나요?'],
+    ['창업', '실제 현장(기관·부대)에 적용하려면 누구의 허락이 필요한가요?'],
+    ['창업', '수익이 나기 전까지 비용은 어떻게 감당하나요?'],
+    ['창업', '사용자 검증을 한 적이 있나요? 결과는 어땠나요?'],
+    ['창업', '비슷한 시도를 한 팀이 실패한 사례를 알고 있나요?'],
+    ['창업', '국방·공공 분야라면 보안 심사를 어떻게 통과할 계획인가요?']
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(data) { try { localStorage.setItem(STORE, JSON.stringify(data)); return true; } catch (e) { return false; } }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmt(ms) {
+    var neg = ms < 0, s = Math.floor(Math.abs(ms) / 1000);
+    return (neg ? '+' : '') + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  var store = load();
+  var sections = Array.isArray(store.sections) && store.sections.length === DEFAULT.length
+    ? DEFAULT.map(function (d, i) { return { name: d.name, hint: d.hint, sec: Math.max(5, Math.min(600, +store.sections[i] || d.sec)) }; })
+    : DEFAULT.map(function (d) { return { name: d.name, hint: d.hint, sec: d.sec }; });
+
+  // ---------- 타이머 상태 ----------
+  var S = { running: false, idx: -1, startAt: 0, secStart: 0, elapsedBefore: 0, secBefore: 0, actual: [], finished: false };
+  function planTotal() { return sections.reduce(function (n, s) { return n + s.sec * 1000; }, 0); }
+  function now() { return Date.now(); }
+  function totalElapsed() { return S.elapsedBefore + (S.running ? now() - S.startAt : 0); }
+  function secElapsed() { return S.secBefore + (S.running ? now() - S.secStart : 0); }
+
+  function drawBar() {
+    var total = planTotal();
+    var html = sections.map(function (s, i) {
+      var cls = i < S.idx || S.finished ? 'done' : i === S.idx ? 'now' : '';
+      return '<span class="' + cls + '" style="width:' + (100 * s.sec * 1000 / total) + '%;background:var(--seg-' + (i + 1) + ')"></span>';
+    }).join('');
+    var pos = Math.min(100, 100 * totalElapsed() / total);
+    $('bar').innerHTML = html + '<i class="needle" style="left:calc(' + pos + '% - 1px)"></i>';
+  }
+  function drawTable() {
+    $('sections').innerHTML = sections.map(function (s, i) {
+      var act = S.actual[i];
+      if (i === S.idx && !S.finished) act = secElapsed();
+      var diff = act == null ? '' : act - s.sec * 1000;
+      var diffTxt = act == null ? '-' : (diff > 999 ? '<span class="diff-over">+' + fmt(diff).replace('+', '') + '</span>' : '<span class="diff-under">' + (diff < -999 ? '-' + fmt(-diff) : '0:00') + '</span>');
+      return '<tr class="' + (i === S.idx && !S.finished ? 'now' : '') + '"><td><span class="dot" style="background:var(--seg-' + (i + 1) + ')"></span>' + esc(s.name) + '</td><td class="num">' + fmt(s.sec * 1000) + '</td><td class="num">' + (act == null ? '-' : fmt(act)) + '</td><td class="num">' + diffTxt + '</td></tr>';
+    }).join('');
+  }
+  function drawEdit() {
+    $('edit').innerHTML = sections.map(function (s, i) {
+      return '<tr><td>' + esc(s.name) + '</td><td class="num"><input type="number" min="5" max="600" step="5" data-i="' + i + '" value="' + s.sec + '" aria-label="' + esc(s.name) + ' 초"></td></tr>';
+    }).join('');
+  }
+  function tick() {
+    var total = planTotal(), te = totalElapsed();
+    $('total-elapsed').textContent = fmt(te);
+    $('total-plan').textContent = fmt(total);
+    $('total-left').textContent = te > total ? '시간 초과 ' + fmt(te - total).replace('+', '+') : fmt(total - te) + ' 남음';
+    var t = $('timer');
+    if (S.idx < 0) {
+      t.dataset.state = 'idle';
+      $('clock').textContent = fmt(sections[0].sec * 1000);
+    } else if (S.finished) {
+      t.dataset.state = te > total ? 'over' : 'ok';
+      $('sec-name').textContent = '끝';
+      $('sec-hint').textContent = te > total ? '3분을 넘었습니다. 표에서 어느 구간이 길었는지 보세요.' : '시간 안에 끝났습니다. 아래에서 자기 채점을 하세요.';
+      $('clock').textContent = fmt(te);
+    } else {
+      var sec = sections[S.idx], left = sec.sec * 1000 - secElapsed();
+      var warnAt = Math.max(5000, sec.sec * 1000 * 0.25);
+      t.dataset.state = left < 0 ? 'over' : left <= warnAt ? 'warn' : 'ok';
+      $('clock').textContent = left < 0 ? fmt(left) : fmt(left + 999);
+    }
+    drawBar(); drawTable();
+  }
+  function enter(i) {
+    S.idx = i; S.secBefore = 0; S.secStart = now();
+    $('sec-name').textContent = (i + 1) + '. ' + sections[i].name;
+    $('sec-hint').textContent = sections[i].hint;
+    $('next').textContent = i === sections.length - 1 ? '끝내기' : '다음 구간';
+  }
+  function start() {
+    if (S.finished) reset();
+    if (S.idx < 0) { S.actual = []; enter(0); S.startAt = now(); S.running = true; }
+    else if (S.running) { S.elapsedBefore += now() - S.startAt; S.secBefore += now() - S.secStart; S.running = false; }
+    else { S.startAt = now(); S.secStart = now(); S.running = true; }
+    $('start').textContent = S.running ? '멈춤' : '계속';
+    $('next').disabled = false;
+    tick();
+  }
+  function next() {
+    if (S.idx < 0 || S.finished) return;
+    S.actual[S.idx] = secElapsed();
+    if (S.idx === sections.length - 1) {
+      S.elapsedBefore = totalElapsed(); S.running = false; S.finished = true;
+      $('start').textContent = '다시 시작'; $('next').disabled = true;
+      S.lastTotal = S.elapsedBefore;
+    } else {
+      var wasRunning = S.running;
+      enter(S.idx + 1);
+      if (!wasRunning) S.secStart = now();
+    }
+    tick();
+  }
+  function reset() {
+    S = { running: false, idx: -1, startAt: 0, secStart: 0, elapsedBefore: 0, secBefore: 0, actual: [], finished: false, lastTotal: S.lastTotal };
+    $('sec-name').textContent = '준비'; $('sec-hint').textContent = '시작을 누르면 첫 구간이 시작됩니다.';
+    $('start').textContent = '시작'; $('next').disabled = true; $('next').textContent = '다음 구간';
+    tick();
+  }
+  $('start').addEventListener('click', start);
+  $('next').addEventListener('click', next);
+  $('reset').addEventListener('click', function () { S.lastTotal = null; reset(); });
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'button') return;
+    if (e.code === 'Space') { e.preventDefault(); start(); }
+    if (e.code === 'ArrowRight') { e.preventDefault(); next(); }
+  });
+  $('edit').addEventListener('change', function (e) {
+    var i = +e.target.dataset.i; if (isNaN(i)) return;
+    sections[i].sec = Math.max(5, Math.min(600, Math.round(+e.target.value || DEFAULT[i].sec)));
+    e.target.value = sections[i].sec;
+    store.sections = sections.map(function (s) { return s.sec; }); save(store); tick();
+  });
+  $('restore').addEventListener('click', function () {
+    sections.forEach(function (s, i) { s.sec = DEFAULT[i].sec; });
+    store.sections = sections.map(function (s) { return s.sec; }); save(store); drawEdit(); tick();
+  });
+  setInterval(function () { if (S.running) tick(); if (Q.running) qtick(); }, 200);
+
+  // ---------- 질문 ----------
+  var Q = { running: false, start: 0, seen: [] };
+  function qtick() {
+    var left = 30000 - (now() - Q.start);
+    var b = $('qclock');
+    b.textContent = left < 0 ? fmt(left) : fmt(left + 999);
+    b.className = left < 0 ? 'over' : left <= 10000 ? 'warn' : '';
+  }
+  $('draw').addEventListener('click', function () {
+    var cat = $('qcat').value;
+    var pool = QUESTIONS.map(function (q, i) { return i; }).filter(function (i) { return cat === 'all' || QUESTIONS[i][0] === cat; });
+    var fresh = pool.filter(function (i) { return Q.seen.indexOf(i) === -1; });
+    if (!fresh.length) { Q.seen = Q.seen.filter(function (i) { return pool.indexOf(i) === -1; }); fresh = pool; }
+    var pick = fresh[Math.floor(Math.random() * fresh.length)];
+    Q.seen.push(pick);
+    $('question').innerHTML = '<span class="tag">' + esc(QUESTIONS[pick][0]) + '</span>' + esc(QUESTIONS[pick][1]);
+    $('qinfo').textContent = '이번 종류에서 ' + (pool.length - fresh.length + 1) + '번째 / ' + pool.length + '개';
+    Q.running = true; Q.start = now(); qtick();
+  });
+
+  // ---------- 채점 ----------
+  $('rubric').innerHTML = RUBRIC.map(function (r, i) {
+    var opts = [1, 2, 3, 4, 5].map(function (v) {
+      return '<label><input type="radio" name="r' + i + '" value="' + v + '"><span>' + v + '</span></label>';
+    }).join('');
+    return '<li><div class="q">' + (i + 1) + '. ' + esc(r) + '</div><div class="scale" role="radiogroup" aria-label="' + esc(r) + '">' + opts + '</div></li>';
+  }).join('');
+  $('score-max').textContent = RUBRIC.length * 5;
+  function score() {
+    var n = 0, filled = 0;
+    RUBRIC.forEach(function (r, i) { var c = document.querySelector('input[name="r' + i + '"]:checked'); if (c) { n += +c.value; filled++; } });
+    return { total: n, filled: filled };
+  }
+  $('rubric').addEventListener('change', function () { $('score').textContent = score().total; });
+
+  function drawHistory() {
+    var h = (load().history || []).slice().reverse();
+    if (!h.length) { $('history').innerHTML = '<p class="empty">아직 저장한 연습이 없습니다.</p>'; return; }
+    $('history').innerHTML = '<table><thead><tr><th>날짜</th><th class="num">걸린 시간</th><th class="num">점수</th><th>메모</th></tr></thead><tbody>' +
+      h.map(function (x) {
+        return '<tr><td>' + esc(x.date) + '</td><td class="num">' + (x.total == null ? '-' : fmt(x.total)) + '</td><td class="num">' + x.score + '/' + x.max + '</td><td>' + esc(x.memo || '') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  $('save').addEventListener('click', function () {
+    var sc = score();
+    if (sc.filled < RUBRIC.length) { $('toast').textContent = '모든 항목에 점수를 매겨 주세요 (' + sc.filled + '/' + RUBRIC.length + ').'; return; }
+    var d = new Date();
+    var rec = {
+      date: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'),
+      total: S.finished ? S.lastTotal : null, sections: S.actual.slice(), score: sc.total, max: RUBRIC.length * 5, memo: $('memo').value.trim().slice(0, 200)
+    };
+    var data = load(); data.sections = sections.map(function (s) { return s.sec; });
+    data.history = (data.history || []).concat([rec]).slice(-50);
+    var ok = save(data);
+    $('toast').textContent = ok ? '저장했습니다.' : '이 브라우저에서는 저장할 수 없습니다(개인정보 보호 모드 등). 점수를 따로 적어 두세요.';
+    drawHistory();
+  });
+  $('clear').addEventListener('click', function () {
+    var data = load(); data.history = []; save(data); drawHistory();
+  });
+
+  $('theme').addEventListener('click', function () {
+    var r = document.documentElement;
+    var dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+  });
+
+  drawEdit(); drawHistory(); tick();
+})();
+</script>
+</body>
+</html>
