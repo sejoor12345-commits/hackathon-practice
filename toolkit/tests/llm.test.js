@@ -176,3 +176,28 @@ test('메모리 보호: IP 가 많아지면 가장 오래된 것부터 빼고, �
   const old = fakeRes(); await handler(req({ prompt: 'x' }, 'old-ip'), old);
   assert.strictEqual(old.statusCode, 200, '가장 오래된 IP 는 빠져서 다시 시작');
 });
+
+test('틀린 접근 코드·잘못된 요청은 하루 예산을 쓰지 않는다 (예산 고갈 공격 방지)', async () => {
+  process.env.DAILY_LIMIT = '3';
+  global.fetch = async () => okReply('ok', 'm');
+  // 공격자: 여러 IP 에서 틀린 코드로 30번
+  for (let i = 0; i < 30; i++) await handler(req({ prompt: 'x' }, 'attacker-' + i, 'POST', { 'x-access-code': 'guess' + i }), fakeRes());
+  // 맞는 코드지만 형식이 틀린 요청 5번
+  for (let i = 0; i < 5; i++) await handler(req({ nothing: 1 }, 'sloppy-' + i), fakeRes());
+  assert.strictEqual(handler._dayCount(), 0, '하루 예산이 줄면 안 됨');
+  const codes = [];
+  for (const ip of ['u1', 'u2', 'u3', 'u4']) { const r = fakeRes(); await handler(req({ prompt: 'x' }, ip), r); codes.push(r.statusCode); }
+  assert.deepStrictEqual(codes, [200, 200, 200, 429], '정상 사용자는 예산 3번을 그대로 쓴다');
+});
+
+test('접근 코드를 5번 틀리면 그 IP 는 맞는 코드를 넣어도 10분 잠금, 다른 IP 는 영향 없음', async () => {
+  global.fetch = async () => okReply('ok', 'm');
+  const codes = [];
+  for (let i = 0; i < 5; i++) { const r = fakeRes(); await handler(req({ prompt: 'x' }, 'bad-ip', 'POST', { 'x-access-code': 'nope' }), r); codes.push(r.statusCode); }
+  assert.deepStrictEqual(codes, [401, 401, 401, 401, 401]);
+  const locked = fakeRes(); await handler(req({ prompt: 'x' }, 'bad-ip'), locked);
+  assert.strictEqual(locked.statusCode, 429);
+  assert.strictEqual(locked.headers['retry-after'], '600');
+  const other = fakeRes(); await handler(req({ prompt: 'x' }, 'good-ip'), other);
+  assert.strictEqual(other.statusCode, 200);
+});

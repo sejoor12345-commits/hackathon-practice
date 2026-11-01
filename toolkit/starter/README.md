@@ -41,7 +41,7 @@ API 키는 **절대** `index.html`이나 GitHub에 쓰지 않습니다. 브라�
 ### 4. 확인
 - **접근 코드** 칸에 `ACCESS_CODE` 값을 넣고, 입력에 "안녕하세요"를 넣고 **보내기** → 답이 나오고 아래에 실제로 답한 모델 이름이 보이면 성공
 - "서버에 OPENROUTER_API_KEY(또는 ACCESS_CODE) 환경 변수가 없습니다" → 3-5를 다시 하고 **Deployments → 맨 위 → Redeploy**
-- "접근 코드가 맞지 않습니다" → 화면의 접근 코드 칸 확인
+- "접근 코드가 맞지 않습니다" → 화면의 접근 코드 칸 확인. 10분 안에 5번 틀리면 그 IP는 10분 동안 잠깁니다
 - "모든 모델이 지금 응답하지 않습니다" → 무료 모델이 붐비는 것. 잠시 뒤 다시, 또는 아래 `OPENROUTER_MODELS`에 다른 무료 모델 추가
 
 ## 설정 (Vercel → Project → Settings → Environment Variables)
@@ -53,7 +53,7 @@ API 키는 **절대** `index.html`이나 GitHub에 쓰지 않습니다. 브라�
 | `SYSTEM_PROMPT` | 지어내지 말라는 기본 지시문 | 모델에게 주는 지시문. 제품이 할 일을 여기 씁니다(브라우저에서는 못 바꿈) |
 | `OPENROUTER_MODELS` | `openrouter/free` | 쉼표로 여러 개. 앞에서부터 시도하고 429·5xx·시간 초과면 다음 모델 |
 | `RATE_LIMIT_PER_MIN` | `10` | IP 하나가 1분에 보낼 수 있는 요청 수 |
-| `DAILY_LIMIT` | `200` | 서버 인스턴스 하나가 하루에 받을 요청 수 |
+| `DAILY_LIMIT` | `200` | 서버 인스턴스 하나가 하루에 처리할 요청 수. 접근 코드와 형식이 맞은 요청만 셉니다(틀린 요청으로 예산을 바닥내지 못하게) |
 
 무료 모델 이름은 자주 바뀝니다. openrouter.ai/models 에서 가격이 0인 모델의 id(예: `...:free`)를 넣으세요. 바꾼 뒤에는 **Redeploy**.
 

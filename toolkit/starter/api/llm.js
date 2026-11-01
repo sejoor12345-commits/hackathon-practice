@@ -32,7 +32,9 @@ const WINDOW_MS = 60 * 1000;
 
 // 메모리에만 있는 간단한 제한. 서버 인스턴스가 새로 뜨면 0부터 다시 센다(완벽한 제한이 아님).
 // 진짜 안전장치는 OpenRouter 키에 건 사용 한도(credit limit)다.
-const state = { hits: new Map(), day: '', dayCount: 0 };
+const state = { hits: new Map(), fails: new Map(), day: '', dayCount: 0 };
+const FAIL_WINDOW_MS = 10 * 60 * 1000; // 접근 코드를 틀린 기록을 보는 기간
+const MAX_FAILS = 5;                    // 이 기간에 이만큼 틀리면 잠금
 
 function models() {
   const list = String(process.env.OPENROUTER_MODELS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -53,21 +55,44 @@ function sameCode(given, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
-function limited(ip, now) {
+// 지웠다가 다시 넣어 "가장 최근"으로 옮기고, 너무 많아지면 가장 오래된 IP 부터 뺀다
+// (한꺼번에 다 지우면 제한이 풀려 버리므로)
+function remember(map, ip, list) {
+  map.delete(ip);
+  map.set(ip, list);
+  while (map.size > MAX_TRACKED_IPS) map.delete(map.keys().next().value);
+}
+
+// 1) IP 하나당 1분 요청 수. 하루 전체 예산은 여기서 건드리지 않는다.
+function ipLimited(ip, now) {
   const perMin = parseInt(process.env.RATE_LIMIT_PER_MIN || '10', 10);
+  const recent = (state.hits.get(ip) || []).filter((t) => now - t < WINDOW_MS);
+  if (recent.length >= perMin) { remember(state.hits, ip, recent); return '요청이 너무 잦습니다. 1분 뒤에 다시 시도하세요.'; }
+  recent.push(now);
+  remember(state.hits, ip, recent);
+  return null;
+}
+
+// 2) 접근 코드를 여러 번 틀린 IP 는 잠시 잠근다 (따로 센다)
+function lockedOut(ip, now) {
+  const recent = (state.fails.get(ip) || []).filter((t) => now - t < FAIL_WINDOW_MS);
+  return recent.length >= MAX_FAILS;
+}
+function recordFail(ip, now) {
+  const recent = (state.fails.get(ip) || []).filter((t) => now - t < FAIL_WINDOW_MS);
+  recent.push(now);
+  remember(state.fails, ip, recent);
+}
+
+// 3) 하루 전체 예산: 접근 코드와 요청 형식이 모두 맞은 요청만 센다
+//    (틀린 요청으로 예산을 다 써 버리게 만드는 공격을 막기 위해)
+function takeDailyBudget(now) {
   const daily = parseInt(process.env.DAILY_LIMIT || '200', 10);
   const today = new Date(now).toISOString().slice(0, 10);
   if (state.day !== today) { state.day = today; state.dayCount = 0; }
-  if (state.dayCount >= daily) return '오늘 쓸 수 있는 요청 수를 다 썼습니다. 내일 다시 시도하세요.';
-  const recent = (state.hits.get(ip) || []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= perMin) { state.hits.set(ip, recent); return '요청이 너무 잦습니다. 1분 뒤에 다시 시도하세요.'; }
-  recent.push(now);
-  state.hits.delete(ip); // 지웠다가 다시 넣어 "가장 최근"으로 옮긴다
-  state.hits.set(ip, recent);
+  if (state.dayCount >= daily) return false;
   state.dayCount++;
-  // 메모리 보호: 한꺼번에 다 지우지 않고 가장 오래된 IP 부터 뺀다 (다 지우면 제한이 풀려 버림)
-  while (state.hits.size > MAX_TRACKED_IPS) state.hits.delete(state.hits.keys().next().value);
-  return null;
+  return true;
 }
 
 function send(res, status, obj) {
@@ -136,17 +161,21 @@ async function handler(req, res) {
   if (!key) return send(res, 500, { error: '서버에 OPENROUTER_API_KEY 환경 변수가 없습니다. Vercel 설정에서 넣고 다시 배포하세요.' });
   const code = process.env.ACCESS_CODE;
   if (!code) return send(res, 500, { error: '서버에 ACCESS_CODE 환경 변수가 없습니다. Vercel 설정에서 넣고 다시 배포하세요.' });
-  // 요청 수 제한을 먼저 센다 → 접근 코드를 마구 넣어 보는 시도도 느려진다
-  const why = limited(clientIp(req), Date.now());
+  const ip = clientIp(req), now = Date.now();
+  // 1) IP 별 요청 수 (전체 예산은 아직 안 씀)
+  const why = ipLimited(ip, now);
   if (why) { res.setHeader('Retry-After', '60'); return send(res, 429, { error: why }); }
+  // 2) 접근 코드. 여러 번 틀리면 10분 잠금
+  if (lockedOut(ip, now)) { res.setHeader('Retry-After', '600'); return send(res, 429, { error: '접근 코드를 여러 번 틀렸습니다. 10분 뒤에 다시 시도하세요.' }); }
   const h = req.headers || {};
-  if (!sameCode(h['x-access-code'], code)) return send(res, 401, { error: '접근 코드가 맞지 않습니다.' });
-
+  if (!sameCode(h['x-access-code'], code)) { recordFail(ip, now); return send(res, 401, { error: '접근 코드가 맞지 않습니다.' }); }
+  // 3) 요청 형식
   let body;
   try { body = await readBody(req); } catch (e) { return send(res, 400, { error: 'JSON 형식이 아닙니다.' }); }
   const built = buildMessages(body || {});
   if (built.error) return send(res, 400, { error: built.error });
-
+  // 4) 여기까지 통과한 요청만 하루 전체 예산을 쓴다
+  if (!takeDailyBudget(now)) { res.setHeader('Retry-After', '3600'); return send(res, 429, { error: '오늘 쓸 수 있는 요청 수를 다 썼습니다. 내일 다시 시도하세요.' }); }
 
   const tried = [];
   for (const model of models()) {
@@ -159,6 +188,7 @@ async function handler(req, res) {
 }
 
 module.exports = handler;
-module.exports._reset = () => { state.hits.clear(); state.day = ''; state.dayCount = 0; };
+module.exports._reset = () => { state.hits.clear(); state.fails.clear(); state.day = ''; state.dayCount = 0; };
+module.exports._dayCount = () => state.dayCount;
 module.exports._trackedIps = () => state.hits.size;
 module.exports.MAX_TRACKED_IPS = MAX_TRACKED_IPS;
