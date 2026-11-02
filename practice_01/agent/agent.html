@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리포트 에이전트</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --surface: #ffffff; --surface-2: #efede6; --text: #1d1c1a; --muted: #67645c;
+    --line: #dcd8cc; --accent: #2f5d50; --accent-text: #ffffff; --ok: #2e7d4f; --warn: #a86400; --bad: #b3261e;
+    --ok-bg: #e5f2ea; --warn-bg: #fbf0dc; --bad-bg: #fbe5e3; --chip: #e4ece9;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --surface: #20201d; --surface-2: #2a2a26; --text: #ecebe6; --muted: #a7a49b;
+      --line: #3a3934; --accent: #7fbfa9; --accent-text: #10201b; --ok: #7fd09f; --warn: #f0b45a; --bad: #f2877e;
+      --ok-bg: #1d3326; --warn-bg: #3a2c14; --bad-bg: #3d1f1c; --chip: #263631;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161614; --surface: #20201d; --surface-2: #2a2a26; --text: #ecebe6; --muted: #a7a49b;
+    --line: #3a3934; --accent: #7fbfa9; --accent-text: #10201b; --ok: #7fd09f; --warn: #f0b45a; --bad: #f2877e;
+    --ok-bg: #1d3326; --warn-bg: #3a2c14; --bad-bg: #3d1f1c; --chip: #263631;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.1rem; margin: 28px 0 10px; }
+  h3 { font-size: 1rem; margin: 0 0 6px; }
+  p { margin: 0 0 10px; }
+  .lead { color: var(--muted); margin-bottom: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0; counter-reset: s; }
+  .flow li { counter-increment: s; font-size: .85rem; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); border: 1px solid transparent; }
+  .flow li::before { content: counter(s) ". "; }
+  .flow li.active { border-color: var(--accent); color: var(--text); }
+  .flow li.done { background: var(--ok-bg); color: var(--ok); }
+  label { font-weight: 600; font-size: .92rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 12px; }
+  .row label.inline { font-weight: 500; display: flex; gap: 6px; align-items: center; }
+  input[type=text], input[type=password], select, textarea {
+    width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+  }
+  textarea { min-height: 170px; font-size: .88rem; line-height: 1.5; resize: vertical; }
+  .field { margin-bottom: 12px; }
+  .hint { font-size: .82rem; color: var(--muted); margin-top: 4px; }
+  .warn-box { background: var(--warn-bg); color: var(--text); border-radius: 8px; padding: 10px 12px; font-size: .86rem; margin-bottom: 12px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); padding: 8px 14px; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 700; padding: 10px 18px; }
+  button:disabled { opacity: .55; cursor: wait; }
+  details > summary { cursor: pointer; font-weight: 600; font-size: .92rem; margin-bottom: 8px; }
+  .llm-only { display: none; }
+  body.llm .llm-only { display: block; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .tile b { display: block; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  .tile span { font-size: .8rem; color: var(--muted); }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 7px 6px; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .pill { display: inline-block; font-size: .78rem; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .report p.greet { color: var(--muted); }
+  .sent { margin: 0 0 8px; }
+  .cite { font-size: .75rem; padding: 0 7px; margin-left: 4px; border-radius: 999px; background: var(--chip); border: 0; color: var(--accent); vertical-align: 1px; }
+  .quote { display: none; font-size: .82rem; color: var(--muted); border-left: 3px solid var(--accent); padding: 2px 8px; margin: 4px 0 0; }
+  .sent.open .quote { display: block; }
+  .side { font-size: .84rem; margin-top: 8px; padding: 8px 10px; border-radius: 8px; }
+  .side.held { background: var(--warn-bg); }
+  .side.dropped { background: var(--bad-bg); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  #error { display: none; background: var(--bad-bg); color: var(--bad); padding: 10px 12px; border-radius: 8px; margin: 10px 0; }
+  .top { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+  .theme { font-size: .8rem; padding: 4px 10px; white-space: nowrap; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <h1>학부모 리포트 에이전트</h1>
+      <p class="lead">강사 메모에서 근거 없는 평가를 찾아 강사에게 묻고, 문장마다 근거를 단 리포트를 씁니다. 메모는 모두 가짜입니다.</p>
+    </div>
+    <button class="theme" id="theme" type="button" aria-label="화면 밝기 바꾸기">밝기</button>
+  </div>
+
+  <ol class="flow" id="steps">
+    <li data-step="extract">주장 뽑기</li><li data-step="judge">근거 확인</li><li data-step="questions">강사 질문</li>
+    <li data-step="answers">답변 반영</li><li data-step="reports">리포트 쓰기</li><li data-step="selfcheck">자가 점검</li>
+  </ol>
+
+  <section class="card" style="margin-top:14px">
+    <div class="row" role="radiogroup" aria-label="실행 방식">
+      <label class="inline"><input type="radio" name="mode" id="mode-mock" value="mock" checked> 연습(mock) – 비용 0원</label>
+      <label class="inline"><input type="radio" name="mode" id="mode-llm" value="llm"> 실제 모델(OpenRouter)</label>
+    </div>
+    <div class="llm-only">
+      <div class="warn-box">사지방처럼 여럿이 쓰는 PC라면 다 쓴 뒤 <b>키 지우기</b>를 누르고 탭을 닫으세요. 키는 이 탭의 sessionStorage에만 있고, 탭을 닫으면 사라집니다. OpenRouter에서 키마다 사용 한도를 작게 걸어 두세요.</div>
+      <div class="field">
+        <label for="api-key">OpenRouter 키</label>
+        <input type="password" id="api-key" autocomplete="off" spellcheck="false" placeholder="sk-or-...">
+        <div class="actions" style="margin-top:6px"><button type="button" id="clear-key">키 지우기</button></div>
+      </div>
+      <div class="field">
+        <label for="models">모델 (앞에서부터 시도, 쉼표로 구분)</label>
+        <input type="text" id="models" value="openrouter/free" spellcheck="false">
+        <div class="hint">무료 모델 이름은 자주 바뀝니다. openrouter.ai/models 에서 가격이 0인 모델 id를 넣으세요. 한 번 실행에 호출 약 5~7회.</div>
+      </div>
+    </div>
+    <div class="row">
+      <label class="inline"><input type="checkbox" id="inject"> 자가 점검 시연 (일부러 지어낸 문장 섞기)</label>
+    </div>
+    <div class="field">
+      <label for="dataset">데이터</label>
+      <select id="dataset">
+        <option value="p01">practice_01 원래 메모 10개 (내장)</option>
+        <option value="eval">평가 세트 12개 (../eval 폴더에서 불러오기)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="memos">강사 메모</label>
+      <textarea id="memos" spellcheck="false"></textarea>
+      <div class="hint">형식: <code>1. [학생 / 강사] 메모 내용</code> 한 줄에 하나</div>
+    </div>
+    <details>
+      <summary>강사 답변 (에이전트는 질문을 다 만든 뒤에만 읽습니다)</summary>
+      <textarea id="answers" spellcheck="false"></textarea>
+      <div class="hint">형식: <code>| 메모 번호 | 강사 | 답변 |</code> 표</div>
+    </details>
+    <div class="actions">
+      <button class="primary" type="button" id="run">실행</button>
+    </div>
+    <div id="error" role="alert"></div>
+  </section>
+
+  <div id="results" hidden>
+    <h2>요약</h2>
+    <div class="tiles" id="summary"></div>
+    <h2>판정</h2>
+    <div class="card table-wrap"><table id="t-judge"><thead><tr><th>메모</th><th>학생</th><th>판정</th><th>이유</th></tr></thead><tbody></tbody></table></div>
+    <h2>강사에게 보낼 질문</h2>
+    <div class="card table-wrap"><table id="t-q"><thead><tr><th>메모</th><th>강사</th><th>질문</th></tr></thead><tbody></tbody></table></div>
+    <h2>강사 답변 반영</h2>
+    <div class="card table-wrap"><table id="t-a"><thead><tr><th>메모</th><th>답변</th><th>근거로 씀</th></tr></thead><tbody></tbody></table></div>
+    <h2>학부모 리포트</h2>
+    <p class="hint">문장 끝의 출처를 누르면 근거 원문이 보입니다.</p>
+    <div id="reports"></div>
+    <div class="card" id="grade-card" hidden>
+      <h3>평가 세트 채점</h3>
+      <p class="hint">mock 모드 점수는 규칙 기반 대역의 점수입니다. 실제 모델 점수가 아닙니다.</p>
+      <button type="button" id="grade-btn">채점하기</button>
+      <div class="table-wrap" id="grade-out"></div>
+    </div>
+    <div class="actions">
+      <button type="button" id="download-json">결과 JSON 받기</button>
+      <button type="button" id="download-md">결과 표(.md) 받기</button>
+    </div>
+  </div>
+</main>
+
+<script type="text/plain" id="default-memos">1. [김민준 / 박강사] 단어시험 평균 88점, 지난달 82점보다 6점 오름. 숙제 4회 모두 제출. 다음 달 독해 지문 난이도 한 단계 올릴 예정.
+2. [이서연 / 최강사] 단어시험 평균 75점(지난달 78점). 수업 중 졸거나 떠드는 일 없고 발표 자원 2회. 집중은 잘하는 편.
+3. [박지호 / 박강사] 요즘 영어 실력이 확실히 늘었어요. 문법 문제 풀 때도 자신감이 붙었고요. 다음 달엔 서술형 위주로 가겠습니다.
+4. [정하은 / 김강사] 독해 지문 1개 푸는 데 평균 6분 걸림(반 평균 약 4분). 다음 달 시간 재고 푸는 연습 추가.
+5. [최도윤 / 최강사] 단어시험 92점, 3개월 연속 90점 이상. 실력 많이 늘었음.
+6. [강예린 / 김강사] 수업 시간에 집중 정말 잘해요. 태도 아주 좋습니다. 단어시험 84점.
+7. [윤시우 / 박강사] 결석 2회(보강 완료). 단어시험 평균 70점, 지난달과 동일. 숙제 4회 중 2회 미제출 → 다음 달 숙제 확인 강화.
+8. [장유나 / 최강사] 집중력 좋아짐. 지난달엔 수업 중 휴대폰 지적 3회, 이번 달 0회. 단어시험 평균 87점.
+9. [한서준 / 김강사] 단어 외우는 속도가 다른 애들보다 느린 편이에요. 단어시험 평균 80점.
+10. [오지안 / 박강사] 이번 달 신규 등록(2주차). 레벨테스트 65점, 하위반 배정. 다음 달 기초 문법 복습 예정.</script>
+<script type="text/plain" id="default-answers">| 메모 번호 | 강사 | 답변 |
+|---|---|---|
+| 3 | 박강사 | 단어시험 평균 지난달 71점에서 이번 달 83점이고, 문법 단원평가는 60점에서 78점으로 올랐어요. |
+| 6 | 김강사 | 매 수업마다 질문을 1~2개씩 하고, 이번 달 숙제 4회 모두 냈어요. 조는 일은 한 번도 없었습니다. |
+| 9 | 김강사 | 30단어 외우는 데 다른 애들은 20분 정도인데, 서준이는 35~40분 걸려요. |</script>
+<script src="agent-core.js"></script>
+<script src="../eval/grade.js" onerror="window.__noGrader = true"></script>
+<script>
+(function () {
+  'use strict';
+  var KEY_NAME = 'p01_openrouter_key';
+  var $ = function (id) { return document.getElementById(id); };
+  var lastRun = null, evalCache = null;
+
+  function ssGet(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function ssSet(k, v) { try { if (v) sessionStorage.setItem(k, v); else sessionStorage.removeItem(k); } catch (e) { /* 저장 못 해도 이 화면에서는 동작 */ } }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function showError(msg) { var e = $('error'); e.textContent = msg; e.style.display = msg ? 'block' : 'none'; }
+
+  // 밝기
+  $('theme').addEventListener('click', function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+  });
+
+  // 기본 데이터
+  $('memos').value = $('default-memos').textContent.trim();
+  $('answers').value = $('default-answers').textContent.trim();
+
+  // 모드와 키
+  function mode() { return $('mode-llm').checked ? 'llm' : 'mock'; }
+  function syncMode() { document.body.classList.toggle('llm', mode() === 'llm'); }
+  $('mode-mock').addEventListener('change', syncMode);
+  $('mode-llm').addEventListener('change', syncMode);
+  $('api-key').value = ssGet(KEY_NAME);
+  $('api-key').addEventListener('input', function () { ssSet(KEY_NAME, $('api-key').value.trim()); });
+  $('clear-key').addEventListener('click', function () { $('api-key').value = ''; ssSet(KEY_NAME, ''); });
+  syncMode();
+
+  // 데이터 고르기
+  async function loadEval() {
+    if (evalCache) return evalCache;
+    var get = async function (p) { var r = await fetch(p, { cache: 'no-store' }); if (!r.ok) throw new Error(p + ' ' + r.status); return r.text(); };
+    evalCache = { memos: await get('../eval/memos.md'), answers: await get('../eval/answers.md'), gold: JSON.parse(await get('../eval/gold.json')) };
+    return evalCache;
+  }
+  $('dataset').addEventListener('change', async function () {
+    showError('');
+    if (this.value === 'p01') {
+      $('memos').value = $('default-memos').textContent.trim();
+      $('answers').value = $('default-answers').textContent.trim();
+      return;
+    }
+    try {
+      var ev = await loadEval();
+      $('memos').value = ev.memos.trim();
+      $('answers').value = ev.answers.trim();
+    } catch (e) {
+      showError('평가 세트를 불러오지 못했습니다. 파일을 직접 연 경우(file://)에는 안 됩니다. GitHub Pages나 Vercel 주소로 열어 주세요. (' + e.message + ')');
+      this.value = 'p01';
+    }
+  });
+
+  // OpenRouter 직접 호출 (키는 이 탭에만)
+  function makeLLM() {
+    var key = $('api-key').value.trim();
+    if (!key) throw new Error('OpenRouter 키를 넣어 주세요.');
+    var models = $('models').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!models.length) throw new Error('모델을 하나 이상 넣어 주세요.');
+    return async function (messages) {
+      var last = '';
+      for (var i = 0; i < models.length; i++) {
+        try {
+          var res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json', 'X-Title': 'practice01-report-agent' },
+            body: JSON.stringify({ model: models[i], messages: messages, temperature: 0, max_tokens: 3000 })
+          });
+          if (res.status === 401) throw new Error('키가 맞지 않습니다(401).');
+          if (!res.ok) { last = models[i] + ': ' + res.status; continue; }
+          var data = await res.json();
+          var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+          if (text) return text;
+          last = models[i] + ': 빈 응답';
+        } catch (e) {
+          if (/401/.test(e.message)) throw e;
+          last = models[i] + ': ' + e.message;
+        }
+      }
+      throw new Error('모든 모델 호출 실패 (' + last + ')');
+    };
+  }
+
+  // 진행 표시
+  var ORDER = ['extract', 'judge', 'questions', 'answers', 'reports', 'selfcheck'];
+  function markStep(name) {
+    var idx = ORDER.indexOf(name);
+    document.querySelectorAll('#steps li').forEach(function (li, i) {
+      li.classList.toggle('done', i < idx || name === 'all-done');
+      li.classList.toggle('active', i === idx);
+    });
+  }
+
+  // 그리기
+  function tile(value, label) { return '<div class="tile"><b>' + esc(value) + '</b><span>' + esc(label) + '</span></div>'; }
+  function render(r) {
+    var sc = r.selfcheck;
+    var amb = r.judgments.filter(function (j) { return j.verdict === '애매'; }).length;
+    var sent = r.reports.reduce(function (n, x) { return n + x.sentences.length; }, 0);
+    $('summary').innerHTML = tile(amb + ' / ' + r.memos.length, '애매 판정 / 메모') + tile(r.questions.length, '강사 질문') +
+      tile(sent, '리포트 문장') + tile(sc.passed_first + ' / ' + sc.sentences, '자가 점검 1차 통과') +
+      tile(sc.dropped, '자가 점검이 뺀 문장') + tile(sc.held, '보류한 주장') + tile(r.llm.calls, '모델 호출 수') +
+      (sc.injected ? tile(sc.injected_caught + ' / ' + sc.injected, '일부러 넣은 오류 잡음') : '');
+    var name = {}; r.memos.forEach(function (m) { name[m.no] = m.student; });
+    $('t-judge').tBodies[0].innerHTML = r.judgments.map(function (j) {
+      return '<tr><td>' + j.memo + '</td><td>' + esc(name[j.memo]) + '</td><td><span class="pill ' + (j.verdict === '애매' ? 'warn' : 'ok') + '">' + esc(j.verdict) + (j.criteria.length ? ' · ' + esc(j.criteria.join(', ')) : '') + '</span></td><td>' + esc(j.reason) + '</td></tr>';
+    }).join('');
+    $('t-q').tBodies[0].innerHTML = r.questions.length ? r.questions.map(function (q) {
+      return '<tr><td>' + q.memo + '</td><td>' + esc(q.teacher) + '</td><td>' + esc(q.question) + '</td></tr>';
+    }).join('') : '<tr><td colspan="3">질문할 메모가 없습니다.</td></tr>';
+    $('t-a').tBodies[0].innerHTML = r.answers.length ? r.answers.map(function (a) {
+      return '<tr><td>' + a.memo + '</td><td>' + esc(a.text || '(답변 없음)') + '</td><td><span class="pill ' + (a.usable ? 'ok' : 'bad') + '">' + (a.usable ? '예' : '아니오') + '</span></td></tr>';
+    }).join('') : '<tr><td colspan="3">-</td></tr>';
+    $('reports').innerHTML = r.reports.map(function (rep) {
+      var body = rep.sentences.map(function (s) {
+        return '<p class="sent">' + esc(s.text) +
+          s.cites.map(function (c) { return '<button type="button" class="cite" aria-expanded="false">' + esc(c.src) + '</button>'; }).join('') +
+          s.flags.map(function (f) { return ' <span class="pill warn">' + esc(f) + '</span>'; }).join('') +
+          s.cites.map(function (c) { return '<span class="quote">' + esc(c.src) + ': "' + esc(c.quote) + '"</span>'; }).join('') + '</p>';
+      }).join('');
+      var held = rep.held.length ? '<div class="side held"><b>보류</b> (근거가 없어 리포트에 넣지 않음): ' + rep.held.map(function (h) { return '"' + esc(h.claim) + '" – ' + esc(h.reason); }).join('; ') + '</div>' : '';
+      var dropped = rep.dropped.length ? '<div class="side dropped"><b>자가 점검이 뺀 문장</b>: ' + rep.dropped.map(function (d) { return '"' + esc(d.text) + '" – ' + esc(d.problems.join(', ')); }).join('; ') + '</div>' : '';
+      return '<article class="card report" data-memo="' + rep.memo + '"><h3>' + rep.memo + '. ' + esc(rep.student) + '</h3><p class="greet">' + esc(rep.greeting) + '</p>' + body + held + dropped + '</article>';
+    }).join('');
+    $('results').hidden = false;
+    $('grade-card').hidden = !(window.EvalGrader && $('dataset').value === 'eval');
+    $('grade-out').innerHTML = '';
+  }
+  $('reports').addEventListener('click', function (e) {
+    var b = e.target.closest('.cite'); if (!b) return;
+    var p = b.closest('.sent'); var open = p.classList.toggle('open');
+    p.querySelectorAll('.cite').forEach(function (x) { x.setAttribute('aria-expanded', String(open)); });
+  });
+
+  // 실행
+  $('run').addEventListener('click', async function () {
+    showError('');
+    var btn = this; btn.disabled = true; btn.textContent = '실행 중…';
+    try {
+      var llm = mode() === 'llm' ? makeLLM() : null;
+      var answersBox = $('answers');
+      lastRun = await ReportAgent.run({
+        memosMd: $('memos').value, mode: mode(), llm: llm, injectFaults: $('inject').checked,
+        loadAnswers: function () { return answersBox.value; },
+        onStep: function (n) { markStep(n); }
+      });
+      markStep('all-done');
+      render(lastRun);
+    } catch (e) {
+      showError(e.message || String(e));
+    } finally {
+      btn.disabled = false; btn.textContent = '실행';
+    }
+  });
+
+  // 채점
+  $('grade-btn').addEventListener('click', async function () {
+    try {
+      var ev = await loadEval();
+      var res = EvalGrader.grade({ run: lastRun, memosMd: $('memos').value, answersMd: $('answers').value, gold: ev.gold });
+      var rows = Object.keys(res.scores).map(function (k) { return '<tr><td>' + esc(k.replace(/_/g, ' ')) + '</td><td>' + esc(EvalGrader.fmt(res.scores[k])) + '</td></tr>'; }).join('');
+      var issues = res.issues.map(function (i) { return '<tr><td>' + i.memo + '</td><td>' + esc(i.kind) + '</td><td>' + esc(i.detail) + '</td></tr>'; }).join('');
+      $('grade-out').innerHTML = '<table id="t-grade"><thead><tr><th>항목</th><th>점수</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+        '<h3 style="margin-top:14px">걸린 곳</h3><table><thead><tr><th>메모</th><th>종류</th><th>내용</th></tr></thead><tbody>' + (issues || '<tr><td colspan="3">없음</td></tr>') + '</tbody></table>';
+    } catch (e) { showError('채점 실패: ' + e.message); }
+  });
+
+  // 내려받기
+  function download(name, text, type) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: type }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+  $('download-json').addEventListener('click', function () { if (lastRun) download('report-agent-run.json', JSON.stringify(lastRun, null, 2), 'application/json'); });
+  $('download-md').addEventListener('click', function () { if (lastRun) download('report-agent-run.md', ReportAgent.toMarkdown(lastRun), 'text/markdown'); });
+})();
+</script>
+</body>
+</html>
